@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Closet Admin Database</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  background: #f4f4f4;
+  display: flex;
+  justify-content: center;
+}
+.container {
+  width: 100%;
+  max-width: 900px;
+}
+.card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+input, textarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-bottom: 10px;
+}
+button {
+  padding: 10px 15px;
+  border: none;
+  background: #007bff;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 5px;
+}
+button:hover {
+  background: #005fcc;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+th, td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+th {
+  background: #eee;
+}
+img.preview {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 5px;
+}
+#qrBox {
+  text-align: center;
+  margin-top: 15px;
+}
+.hidden {
+  display: none;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="card">
+    <h1>Closet Admin Database (Website B)</h1>
+    <p>Add, edit, delete items and generate QR codes.</p>
+  </div>
+
+  <!-- ADD / EDIT FORM -->
+  <div class="card">
+    <h2>Add / Edit Item</h2>
+
+    <label>Item Code</label>
+    <input id="code" placeholder="H001">
+
+    <label>Name</label>
+    <input id="name">
+
+    <label>Category</label>
+    <input id="category">
+
+    <label>Size</label>
+    <input id="size">
+
+    <label>Color</label>
+    <input id="color">
+
+    <label>Description</label>
+    <textarea id="notes"></textarea>
+
+    <label>Photo (optional)</label>
+    <input type="file" id="photo" accept="image/*">
+    <img id="previewPhoto" class="preview hidden">
+
+    <button onclick="saveItem()">Save Item</button>
+  </div>
+
+  <!-- ITEM TABLE -->
+  <div class="card">
+    <h2>All Items</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Photo</th>
+          <th>QR</th>
+          <th>Edit</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody id="itemsTable"></tbody>
+    </table>
+  </div>
+
+  <div id="qrBox" class="card hidden">
+    <h2>QR Code</h2>
+    <img id="qrImage" style="width:200px;">
+    <br><br>
+    <button onclick="window.print()">Print QR</button>
+  </div>
+
+</div>
+
+<script>
+/* --------------------
+      DATABASE SETUP
+---------------------*/
+const STORAGE_KEY = "closetDB_v1";
+
+function loadDB() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : {};
+}
+function saveDB(db) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+let DB = loadDB();
+
+/* --------------------
+     RENDER TABLE
+---------------------*/
+function renderTable() {
+  const tbody = document.getElementById("itemsTable");
+  tbody.innerHTML = "";
+
+  Object.keys(DB).forEach(code => {
+    const item = DB[code];
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${code}</td>
+      <td>${item.name}</td>
+      <td>${item.photo ? `<img src="${item.photo}" class="preview">` : "—"}</td>
+      <td><button onclick="showQR('${code}')">QR</button></td>
+      <td><button onclick="editItem('${code}')">Edit</button></td>
+      <td><button onclick="deleteItem('${code}')">Delete</button></td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* --------------------
+      SAVE ITEM
+---------------------*/
+document.getElementById("photo").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      document.getElementById("previewPhoto").src = reader.result;
+      document.getElementById("previewPhoto").classList.remove("hidden");
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+function saveItem() {
+  const code = document.getElementById("code").value.trim();
+  if (!code) return alert("Item must have a code.");
+
+  DB[code] = {
+    name: document.getElementById("name").value.trim(),
+    category: document.getElementById("category").value.trim(),
+    size: document.getElementById("size").value.trim(),
+    color: document.getElementById("color").value.trim(),
+    notes: document.getElementById("notes").value.trim(),
+    photo: document.getElementById("previewPhoto").src || ""
+  };
+
+  saveDB(DB);
+  renderTable();
+  alert("Saved!");
+}
+
+/* --------------------
+      EDIT ITEM
+---------------------*/
+function editItem(code) {
+  const item = DB[code];
+
+  document.getElementById("code").value = code;
+  document.getElementById("name").value = item.name;
+  document.getElementById("category").value = item.category;
+  document.getElementById("size").value = item.size;
+  document.getElementById("color").value = item.color;
+  document.getElementById("notes").value = item.notes;
+
+  if (item.photo) {
+    document.getElementById("previewPhoto").src = item.photo;
+    document.getElementById("previewPhoto").classList.remove("hidden");
+  } else {
+    document.getElementById("previewPhoto").classList.add("hidden");
+  }
+}
+
+/* --------------------
+     DELETE ITEM
+---------------------*/
+function deleteItem(code) {
+  if (!confirm("Delete item " + code + "?")) return;
+  delete DB[code];
+  saveDB(DB);
+  renderTable();
+}
+
+/* --------------------
+     QR GENERATOR
+---------------------*/
+function showQR(code) {
+  const itemURL = "https://kushthabush.github.io/webistedatabase/closet.html.html?code=" + code;
+
+  const qrURL =
+    "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
+    encodeURIComponent(itemURL);
+
+  document.getElementById("qrImage").src = qrURL;
+  document.getElementById("qrBox").classList.remove("hidden");
+}
+
+/* --------------------
+        INIT
+---------------------*/
+renderTable();
+</script>
+
+</body>
+</html>
